@@ -84,7 +84,7 @@ while True:
             sound_waves[filename] = w
             print(f"Sound wave loaded: {filename}")
 
-    elif cmd[0].lower == "list":
+    elif cmd[0].lower() == "list":
         list_waves(sound_waves)
         continue
 
