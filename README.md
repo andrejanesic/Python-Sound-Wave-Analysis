@@ -1,6 +1,6 @@
 # Python Sound Wave Analysis
 
-This program processes any given `.wav` signal to remove silence at the beginning/end of the record, and attempts to identify speech inside the wave. The wave(s) are then plotted as histograms, spectograms, etc.
+This program processes any given `.wav` signal to remove silence at the beginning/end of the record, and attempts to identify speech inside the wave. The wave(s) are then plotted as histograms, spectograms, etc. One or multiple waves may be plotted for comparison.
 
 ## Author
 

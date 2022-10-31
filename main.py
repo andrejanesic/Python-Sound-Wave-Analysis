@@ -1,3 +1,4 @@
+from typing import List
 import wave
 import numpy as np
 import sys
@@ -9,12 +10,13 @@ class SoundWave:
     Encapsulates the wave file and its associated operations.
     """
 
-    def __init__(self, name, wave):
+    def __init__(self, name: str, wave: wave.Wave_read, values: np.ndarray):
         """
         Default constructor. Takes in the file name and a NumPy 1-D array as input.
         """
         self.name = name
         self.wave = wave
+        self.values = values
 
 
 def load_wave(filename):
@@ -41,7 +43,29 @@ def load_wave(filename):
         # TODO this might be an SPOF, because we're averaging the two channels with floor division.
         vals = (ch1 + ch2) // 2
 
-    return SoundWave(name=filename, wave=vals)
+    return SoundWave(name=filename, wave=wav, values=vals)
+
+
+def plot_waves(sound_waves: List[SoundWave], type="waveform"):
+    """
+    Plots all passed sound waves on a single plot with the given type.
+    """
+    title = f"{type.capitalize()} plot of"
+
+    plt.ylabel("Amplitude")
+
+    plt.xlabel("Time")
+
+    for sw in sound_waves:
+        title += f" {sw.name}.wav"
+        time = np.linspace(0, len(sw.values) /
+                           sw.wave.getframerate(), num=len(sw.values))
+        # TODO check if okay to simply plot different times
+        plt.plot(time, sw.values, label=f"{sw.name}.wav")
+
+    plt.legend()
+
+    plt.show()
 
 
 def list_waves(d):
@@ -71,7 +95,16 @@ while True:
 
     cmd = input("> ").split(" ")
 
-    if cmd[0].lower() == "load":
+    if len(cmd) == 0:
+        continue
+
+    func = cmd[0].lower()
+
+    if func == "list":
+        list_waves(sound_waves)
+        continue
+
+    elif func == "load":
 
         if len(cmd) != 2 or cmd[1] == "":
             print("Invalid syntax:")
@@ -88,14 +121,43 @@ while True:
             sound_waves[filename] = w
             print(f"Sound wave loaded: {filename}")
 
-    elif cmd[0].lower() == "list":
-        list_waves(sound_waves)
-        continue
+    elif func == "plot":
 
-    elif cmd[0].lower() == "quit":
+        plot_type = 'waveform'
+
+        if len(cmd) < 2:
+            print("Invalid syntax:")
+            print(
+                "plot [waveform|spectogram|histogram] <filename> [...filenames] ::: Plots the selected wavefile on the selected type of graph. Multiple wavefiles may be plotted.")
+            continue
+
+        i = 1
+        if cmd[1].lower() in ['waveform', 'spectogram', 'histogram']:
+            plot_type = cmd[1].lower()
+            i += 1
+
+        to_compare = []
+        br = False
+        for f in cmd[i:]:
+            sw = sound_waves.get(f, None)
+            if sw == None:
+                print(f"Sound wave {f} not loaded")
+                br = True
+                continue
+            to_compare.append(sw)
+        if br:
+            continue
+
+        plot_waves(to_compare, type=plot_type)
+
+    elif func == "quit":
         quit()
 
     else:
         print("Commands:")
+        print("help ::: Shows this menu.")
+        print("list ::: Lists all loaded wavefiles.")
         print("load <filename> ::: Loads the file from ./input/<filename>.wav")
+        print(
+            "plot (waveform|spectogram|histogram) <filename> [...filenames] ::: Plots the selected wavefile on the selected type of graph. Multiple wavefiles may be plotted.")
         print("quit ::: Closes the application")
