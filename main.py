@@ -48,6 +48,10 @@ def list_waves(d):
     """
     Lists the available sound waves from d dictionary of SoundWave objects.
     """
+    if len(d.keys()) == 0:
+        print("No sound waves loaded")
+        return
+
     print("Sound waves available:")
     for key in d:
         print(f"\t{key}")
