@@ -93,7 +93,8 @@ sound_waves = {}
 
 while True:
 
-    cmd = input("> ").split(" ")
+    cmd = input("> ").strip().split(" ")
+    cmd = [x.strip() for x in cmd if x.strip() != ""]
 
     if len(cmd) == 0:
         continue
@@ -106,49 +107,47 @@ while True:
 
     elif func == "load":
 
-        if len(cmd) != 2 or cmd[1] == "":
+        if len(cmd) < 2:
             print("Invalid syntax:")
             print("load <filename> ::: Loads the file from ./input/<filename>.wav")
             continue
 
-        filename = cmd[1]
-        if sound_waves.get(filename, None) != None:
-            print(f"File already loaded: {filename}")
-            continue
+        for fn in cmd[1:]:
+            if sound_waves.get(fn, None) != None:
+                print(f"File already loaded: {fn}")
+                continue
 
-        w = load_wave(filename)
-        if w != None:
-            sound_waves[filename] = w
-            print(f"Sound wave loaded: {filename}")
+            w = load_wave(fn)
+            if w != None:
+                sound_waves[fn] = w
+                print(f"Sound wave loaded: {fn}")
 
     elif func == "plot":
 
         plot_type = 'waveform'
 
-        if len(cmd) < 2:
-            print("Invalid syntax:")
-            print(
-                "plot [waveform|spectogram|histogram] <filename> [...filenames] ::: Plots the selected wavefile on the selected type of graph. Multiple wavefiles may be plotted.")
-            continue
-
         i = 1
-        if cmd[1].lower() in ['waveform', 'spectogram', 'histogram']:
-            plot_type = cmd[1].lower()
-            i += 1
+        if len(cmd) > 1:
+            if cmd[1].lower() in ['waveform', 'spectogram', 'histogram']:
+                plot_type = cmd[1].lower()
+                i += 1
 
-        to_compare = []
-        br = False
-        for f in cmd[i:]:
-            sw = sound_waves.get(f, None)
-            if sw == None:
-                print(f"Sound wave {f} not loaded")
-                br = True
+        if len(cmd) == 1:
+            to_compare = sound_waves
+        else:
+            to_compare = []
+            br = False
+            for f in cmd[i:]:
+                sw = sound_waves.get(f, None)
+                if sw == None:
+                    print(f"Sound wave {f} not loaded")
+                    br = True
+                    continue
+                to_compare.append(sw)
+            if br:
                 continue
-            to_compare.append(sw)
-        if br:
-            continue
 
-        plot_waves(to_compare, type=plot_type)
+        plot_waves(to_compare.values(), type=plot_type)
 
     elif func == "quit":
         quit()
@@ -157,7 +156,8 @@ while True:
         print("Commands:")
         print("help ::: Shows this menu.")
         print("list ::: Lists all loaded wavefiles.")
-        print("load <filename> ::: Loads the file from ./input/<filename>.wav")
         print(
-            "plot (waveform|spectogram|histogram) <filename> [...filenames] ::: Plots the selected wavefile on the selected type of graph. Multiple wavefiles may be plotted.")
+            "load <filename> [...filenames] ::: Loads each specified file from ./input/<filename>.wav")
+        print(
+            "plot [waveform|spectogram|histogram] [...filenames] ::: Plots the selected wavefile on the selected type of graph. Multiple wavefiles may be plotted. If no file is specified, plots all loaded.")
         print("quit ::: Closes the application")
