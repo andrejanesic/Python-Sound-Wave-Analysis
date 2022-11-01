@@ -1,8 +1,18 @@
+from tkinter.tix import TEXT
 from typing import Dict, List
 import wave
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
+import os
+from constants import *
+
+
+# P and R parameters for cleaning.
+p = 500
+r = 5000
+# Whether to auto-load all .wavs from ./input/*
+auto_load = True
 
 
 class SoundWave:
@@ -18,6 +28,7 @@ class SoundWave:
         self.wave = wave
         self.values = values
         self.cleaned = False
+        self.speech_detected = False
 
     def find_endpoints(self, p: int, r: int):
         """
@@ -89,9 +100,12 @@ class SoundWave:
         """
         Removes non-speech parts of the wave. Finds speech endpoints first with given values P and R.
         """
+        if self.cleaned:
+            return
         noise_mask, _ = self.find_endpoints(p, r)
         self.values = np.delete(self.values, ~noise_mask.astype(bool))
         self.cleaned = True
+        self.speech_detected = noise_mask.sum() > 0
 
 
 def load_wave(filename):
@@ -148,121 +162,162 @@ def plot_waves(sound_waves: List[SoundWave], type="waveform"):
     plt.show()
 
 
-def list_waves(d):
+def list_waves(d, filter=None):
     """
     Lists the available sound waves from d dictionary of SoundWave objects.
     """
     if len(d.keys()) == 0:
-        print("No sound waves loaded")
+        print("😥 No sound waves loaded yet. Try load <file> to load one!")
         return
 
-    print("Sound waves available:")
+    print("Sound waves loaded:")
     for key in d:
-        print(f"\t{key}")
+        sw = d.get(key)
+        if filter != None:
+            if filter in d:
+                if sw.cleaned:
+                    if sw.speech_detected:
+                        print(f"▶️  {key}  🔊 Speech found")
+                    else:
+                        print(f"▶️  {key}  🎶 Only noise")
+                else:
+                    print(f"▶️  {key}  📌 Not cut yet")
+        else:
+            if sw.cleaned:
+                if sw.speech_detected:
+                    print(f"▶️  {key}  🔊 Speech found")
+                else:
+                    print(f"▶️  {key}  🎶 Only noise")
+            else:
+                print(f"▶️  {key}  📌 Not cut yet")
 
 
 def quit():
     """
     Called for graceful app exit.
     """
-    print("Bye")
+    print("Bye! 👋")
     sys.exit(0)
 
 
+# Helper global dict of all loaded soundwaves.
 sound_waves: Dict[str, SoundWave] = {}
-p = 500
-r = 5000
 
-while True:
 
-    cmd = input("> ").strip().split(" ")
-    cmd = [x.strip() for x in cmd if x.strip() != ""]
+def main():
+    print(TEXT_WELCOME)
 
-    if len(cmd) == 0:
-        continue
+    if auto_load:
+        print("⌛ Loading all WAVs from ./input...")
+        files = os.listdir("./input")
+        for f in files:
+            fname = f[:-4]
+            sw = load_wave(fname)
+            if sw != None:
+                sound_waves[fname] = sw
+            else:
+                print(f"❌ Error while loading input/{fname}.wav, skipping...")
+        print("✅ Done!")
 
-    func = cmd[0].lower()
+    print("\n🚀 Enter your commands below:")
+    while True:
 
-    if func == "clean":
+        cmd = input("\n> ").strip().split(" ")
+        cmd = [x.strip() for x in cmd if x.strip() != ""]
 
-        if len(cmd) == 1:
-            to_clean = sound_waves.values()
-        else:
-            to_clean = []
-            br = False
-            for f in cmd[i:]:
-                sw = sound_waves.get(f, None)
-                if sw == None:
-                    print(f"Sound wave {f} not loaded")
-                    br = True
-                    continue
-                to_clean.append(sw)
-            if br:
-                continue
-
-        for sw in to_clean:
-            sw.clean(p, r)
-            print(f"Sound wave {sw.name} cleaned")
-
-    elif func == "list":
-        list_waves(sound_waves)
-        continue
-
-    elif func == "load":
-
-        if len(cmd) < 2:
-            print("Invalid syntax:")
-            print("load <filename> ::: Loads the file from ./input/<filename>.wav")
+        if len(cmd) == 0:
             continue
 
-        for fn in cmd[1:]:
-            if sound_waves.get(fn, None) != None:
-                print(f"File already loaded: {fn}")
-                continue
+        func = cmd[0].lower()
 
-            w = load_wave(fn)
-            if w != None:
-                sound_waves[fn] = w
-                print(f"Sound wave loaded: {fn}")
+        if func == "cut":
 
-    elif func == "plot":
-
-        plot_type = 'waveform'
-
-        i = 1
-        if len(cmd) > 1:
-            if cmd[1].lower() in ['waveform', 'spectogram', 'histogram']:
-                plot_type = cmd[1].lower()
-                i += 1
-
-        if len(cmd) == 1:
-            to_compare = sound_waves.values()
-        else:
-            to_compare = []
-            br = False
-            for f in cmd[i:]:
-                sw = sound_waves.get(f, None)
-                if sw == None:
-                    print(f"Sound wave {f} not loaded")
-                    br = True
+            if len(cmd) == 1:
+                to_clean = sound_waves.values()
+            else:
+                to_clean = []
+                br = False
+                for f in cmd[1:]:
+                    sw = sound_waves.get(f, None)
+                    if sw == None:
+                        print(TEXT_NOT_LOADED + f)
+                        br = True
+                        continue
+                    to_clean.append(sw)
+                if br:
                     continue
-                to_compare.append(sw)
-            if br:
+
+            for sw in to_clean:
+                sw.clean(p, r)
+                if sw.speech_detected:
+                    print(f"✅ Sound wave {sw.name} cleaned")
+                else:
+                    print(f"🚩 No speech detected in {sw.name}!")
+
+        elif func == "list":
+            if len(cmd) > 1:
+                list_waves(sound_waves, cmd[1])
+            else:
+                list_waves(sound_waves)
+            continue
+
+        elif func == "load":
+
+            if len(cmd) < 2:
+                print(TEXT_INVALID_SYNTAX)
+                print(TEXT_LOAD)
                 continue
 
-        plot_waves(to_compare, type=plot_type)
+            for fn in cmd[1:]:
+                if sound_waves.get(fn, None) != None:
+                    print(f"✅ File already loaded, skipping: {fn}")
+                    continue
 
-    elif func == "quit":
-        quit()
+                w = load_wave(fn)
+                if w != None:
+                    sound_waves[fn] = w
+                    print(f"✅ Sound wave loaded: {fn}")
 
-    else:
-        print("Commands:")
-        print(
-            "clean <filename> [...filenames] ::: Removes non-speech parts of the selected soundwaves")
-        print("help ::: Shows this menu.")
-        print("list ::: Lists all loaded wavefiles.")
-        print(
-            "load <filename> [...filenames] ::: Loads each specified file from ./input/<filename>.wav")
-        print(
-            "plot [waveform|spectogram|histogram] [...filenames] ::: Plots the selected wavefile on the selected type of graph. Multiple wavefiles may be plotted. If no file is specified, plots all loaded.")
-        print("quit ::: Closes the application")
+        elif func == "plot":
+
+            plot_type = 'waveform'
+
+            i = 1
+            if len(cmd) > 1:
+                if cmd[1].lower() in ['waveform', 'spectogram', 'histogram']:
+                    plot_type = cmd[1].lower()
+                    i += 1
+
+            if len(cmd) == 1:
+                to_compare = sound_waves.values()
+            else:
+                to_compare = []
+                br = False
+                for f in cmd[i:]:
+                    sw = sound_waves.get(f, None)
+                    if sw == None:
+                        print(TEXT_NOT_LOADED + f)
+                        br = True
+                        continue
+                    to_compare.append(sw)
+                if br:
+                    continue
+
+            print(f"📈 Plotting...")
+            plot_waves(to_compare, type=plot_type)
+
+        elif func == "quit":
+            quit()
+
+        else:
+            print("\n=== Help ===\n")
+            print(f"{TEXT_CLEAN}\n")
+            print(f"{TEXT_HELP}\n")
+            print(f"{TEXT_LIST}\n")
+            print(f"{TEXT_LOAD}\n")
+            print(f"{TEXT_PLOT}\n")
+            print(f"{TEXT_QUIT}")
+
+
+if __name__ == "__main__":
+    main()
