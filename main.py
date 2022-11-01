@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Dict, List
 import wave
 import numpy as np
 import sys
@@ -17,6 +17,7 @@ class SoundWave:
         self.name = name
         self.wave = wave
         self.values = values
+        self.cleaned = False
 
     def find_endpoints(self, p: int, r: int):
         """
@@ -84,6 +85,14 @@ class SoundWave:
 
         return (noise_mask, noise_borders)
 
+    def clean(self, p: int, r: int):
+        """
+        Removes non-speech parts of the wave. Finds speech endpoints first with given values P and R.
+        """
+        noise_mask, _ = self.find_endpoints(p, r)
+        self.values = np.delete(self.values, ~noise_mask.astype(bool))
+        self.cleaned = True
+
 
 def load_wave(filename):
     """
@@ -130,8 +139,9 @@ def plot_waves(sound_waves: List[SoundWave], type="waveform"):
         # TODO check if okay to simply plot different times
         plt.plot(time, sw.values, label=f"{sw.name}.wav")
         clr = np.random.rand(3,)
-        for xc in noise_borders:
-            plt.axvline(x=xc, color=clr)
+        if not sw.cleaned:
+            for xc in noise_borders:
+                plt.axvline(x=xc, color=clr)
 
     plt.legend()
 
@@ -159,7 +169,9 @@ def quit():
     sys.exit(0)
 
 
-sound_waves = {}
+sound_waves: Dict[str, SoundWave] = {}
+p = 500
+r = 5000
 
 while True:
 
@@ -171,7 +183,28 @@ while True:
 
     func = cmd[0].lower()
 
-    if func == "list":
+    if func == "clean":
+
+        if len(cmd) == 1:
+            to_clean = sound_waves.values()
+        else:
+            to_clean = []
+            br = False
+            for f in cmd[i:]:
+                sw = sound_waves.get(f, None)
+                if sw == None:
+                    print(f"Sound wave {f} not loaded")
+                    br = True
+                    continue
+                to_clean.append(sw)
+            if br:
+                continue
+
+        for sw in to_clean:
+            sw.clean(p, r)
+            print(f"Sound wave {sw.name} cleaned")
+
+    elif func == "list":
         list_waves(sound_waves)
         continue
 
@@ -224,6 +257,8 @@ while True:
 
     else:
         print("Commands:")
+        print(
+            "clean <filename> [...filenames] ::: Removes non-speech parts of the selected soundwaves")
         print("help ::: Shows this menu.")
         print("list ::: Lists all loaded wavefiles.")
         print(
