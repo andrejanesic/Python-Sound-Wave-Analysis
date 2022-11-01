@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 import wave
 import numpy as np
 import sys
@@ -17,6 +17,72 @@ class SoundWave:
         self.name = name
         self.wave = wave
         self.values = values
+
+    def find_endpoints(self, p: int, r: int):
+        """
+        Finds the endpoints of speech on the sound wave. Returns noise mask and borders.
+        """
+
+        # Get the number of frames for the first 100ms.
+        initial_t = 100
+        initial_t = round((self.wave.getframerate()) * initial_t / 1000)
+        initial_f = np.absolute(self.values[:initial_t])
+
+        # Noise limit.
+        noise_l = np.average(initial_f) + 2 * initial_f.std()
+        noise_mask = np.zeros(self.values.shape)
+
+        # Window width (ms) for noise detection.
+        window_w = 10
+        window_w = round(self.wave.getframerate() * window_w / 100)
+
+        i = 0
+        while i < len(self.values):
+            # TODO pitati jel treba i ovde abs
+            window_avg = np.average(np.absolute(self.values[i:(i+window_w)]))
+            j = 1 if window_avg > noise_l else 0
+            noise_mask[i:(i+window_w)] = j
+            i += window_w
+
+        # TODO pitati sto mi ovo skoro nista ne menja???
+        # TODO da li se ovo moze zameniti vektorskim racunom?
+        length = 0
+        start = -1
+        curr = 0
+        while curr < len(noise_mask):
+            if noise_mask[curr] == 1:
+                if length < p:
+                    noise_mask[start+1:start+1+length] = 1
+                start = curr
+                length = 0
+            curr += 1
+            length += 1
+
+        length = 0
+        start = -1
+        curr = 0
+        while curr < len(noise_mask):
+            if noise_mask[curr] == 0:
+                if length < r:
+                    noise_mask[start+1:start+1+length] = 0
+                start = curr
+                length = 0
+            curr += 1
+            length += 1
+
+        # Find borders of noise.
+        shift_l = noise_mask.tolist().copy()
+        shift_l.pop(0)
+        shift_l.append(0)
+        shift_r = noise_mask.tolist().copy()
+        shift_r.pop()
+        shift_r.insert(0, 0)
+        noise_borders = ((noise_mask - np.array(shift_l) >
+                          0) | (noise_mask - np.array(shift_r) > 0)).astype(int)
+        noise_borders = (np.array(np.nonzero(noise_borders)) /
+                         self.wave.getframerate())[0].tolist()
+
+        return (noise_mask, noise_borders)
 
 
 def load_wave(filename):
@@ -58,10 +124,14 @@ def plot_waves(sound_waves: List[SoundWave], type="waveform"):
 
     for sw in sound_waves:
         title += f" {sw.name}.wav"
+        _, noise_borders = sw.find_endpoints(500, 5000)
         time = np.linspace(0, len(sw.values) /
                            sw.wave.getframerate(), num=len(sw.values))
         # TODO check if okay to simply plot different times
         plt.plot(time, sw.values, label=f"{sw.name}.wav")
+        clr = np.random.rand(3,)
+        for xc in noise_borders:
+            plt.axvline(x=xc, color=clr)
 
     plt.legend()
 
@@ -133,7 +203,7 @@ while True:
                 i += 1
 
         if len(cmd) == 1:
-            to_compare = sound_waves
+            to_compare = sound_waves.values()
         else:
             to_compare = []
             br = False
@@ -147,7 +217,7 @@ while True:
             if br:
                 continue
 
-        plot_waves(to_compare.values(), type=plot_type)
+        plot_waves(to_compare, type=plot_type)
 
     elif func == "quit":
         quit()
