@@ -1,3 +1,4 @@
+import random
 from tkinter.tix import TEXT
 from typing import Dict, List
 import wave
@@ -5,6 +6,7 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 import os
+import regex as re
 from constants import *
 
 
@@ -200,6 +202,34 @@ def quit():
     sys.exit(0)
 
 
+def generate_wave(name, n, t):
+    """
+    Generates a sinusoidal sound wave comprised of n harmonics, all totaling t duration.
+    """
+    framerate = 44100
+    T = np.arange(framerate * t / 1000) / framerate
+    vals = np.zeros(len(T))
+    while n > 0:
+        a = random.randint(1, 10) / 10
+        f = random.randint(10, 100)
+        omega = 2 * np.pi * f
+        vals += (a * np.sin(omega * T))
+        n -= 1
+
+    if not os.path.exists("./output"):
+        os.makedirs("./output")
+    wav = wave.open("./output/" + name + ".wav", "wb")
+    wav.setframerate(framerate)
+    wav.setnchannels(1)
+    wav.setsampwidth(4)
+
+    # Write sound
+    wav.writeframes(vals)
+
+    sw = SoundWave(name, wav, vals)
+    return sw
+
+
 # Helper global dict of all loaded soundwaves.
 sound_waves: Dict[str, SoundWave] = {}
 
@@ -220,6 +250,7 @@ def main():
         print("✅ Done!")
 
     print("\n🚀 Enter your commands below:")
+
     while True:
 
         cmd = input("\n> ").strip().split(" ")
@@ -253,6 +284,43 @@ def main():
                     print(f"✅ Sound wave {sw.name} cleaned")
                 else:
                     print(f"🚩 No speech detected in {sw.name}!")
+
+        elif func == "gen":
+            if len(cmd) < 2:
+                name = "wave-" + str(len(sound_waves.keys()))
+            else:
+                if re.search("[^a-zA-Z0-9_\\-]", cmd[1]) != None:
+                    print(
+                        f"😅 Oops! The sound wave name can only comprise of a-z, A-Z, 0-9, '_' or '-' characters. How about \"Bach-Outclassed-2022\"?")
+                    continue
+
+                name = cmd[1]
+
+            if len(cmd) < 3:
+                n = 10
+            else:
+                if re.search("\D", cmd[2]) != None:
+                    print(
+                        f"😅 Oops! You specified an invalid number of harmonics: \"{cmd[2]}\" - try giving a number, like 10!")
+                    continue
+
+                n = int(cmd[2])
+
+            if len(cmd) < 4:
+                t = 100
+            else:
+                if re.search("\D", cmd[3]) != None:
+                    print(
+                        f"😅 Oops! You specified an invalid wave duration: \"{cmd[2]}\" - try giving a number, like 100!")
+                    continue
+
+                t = int(cmd[3])
+
+            sw = generate_wave(name, n, t)
+            print(TEXT_GENERATED + name)
+            print(TEXT_PLOTTING)
+            sound_waves[sw.name] = sw
+            plot_waves([sw])
 
         elif func == "list":
             if len(cmd) > 1:
@@ -303,7 +371,7 @@ def main():
                 if br:
                     continue
 
-            print(f"📈 Plotting...")
+            print(TEXT_PLOTTING)
             plot_waves(to_compare, type=plot_type)
 
         elif func == "quit":
@@ -312,6 +380,7 @@ def main():
         else:
             print("\n=== Help ===\n")
             print(f"{TEXT_CLEAN}\n")
+            print(f"{TEXT_GENERATE}\n")
             print(f"{TEXT_HELP}\n")
             print(f"{TEXT_LIST}\n")
             print(f"{TEXT_LOAD}\n")

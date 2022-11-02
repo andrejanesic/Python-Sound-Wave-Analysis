@@ -17,3 +17,7 @@ TEXT_PLOT = "📈 plot [waveform|spectogram|histogram] [...filenames] ::: Plots 
 TEXT_QUIT = "🚪 quit ::: Closes the application"
 TEXT_NOT_LOADED = "🤔 I couldn't find this sound wave, did you load it? "
 TEXT_INVALID_SYNTAX = "🤔 I couldn't understand that. Try this command:"
+TEXT_GENERATE = "🎧 gen [name] [harmonics] [duration] ::: Generates a sound wave with the given name and number of harmonics, lasting [duration] ms. If no name provided, name will be generated. Harmonics number equals 10 by default. Duration equals 100 (ms) by default."
+TEXT_ERROR_WRITING = "❌ There was an error while saving the wave "
+TEXT_GENERATED = "💽 You're officially an artist. Here's your sound wave: "
+TEXT_PLOTTING = "📈 Plotting..."
