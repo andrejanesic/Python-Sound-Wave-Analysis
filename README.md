@@ -6,6 +6,10 @@ This program processes any given `.wav` signal to remove silence at the beginnin
 
 [![Author](https://andrejanesic.com/git-signature.png)](https://github.com/andrejanesic)
 
+## Setup & Running
+
+This is a command-line Python program. Python 3 is necessary to run. It is also possible to run this program via the given Dockerfile (through Makefile), however, you'll need to modify the Makefile to include a display port for Docker in order to see Pyplot graphs. It's recommended to run this program directly on your computer without Docker.
+
 ## Task Specification
 
 This program was developed as an individual assignment for the class of [[5025] Speech Recognition](https://raf.edu.rs/en/component/content/article/192-english/subjects/3359-speech-recognition), cohort 2022/23, at the [School of Computing, Union University, Belgrade.](https://rs.linkedin.com/school/racunarski-fakultet/)
