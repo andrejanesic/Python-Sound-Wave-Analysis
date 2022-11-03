@@ -137,31 +137,97 @@ def load_wave(filename):
     return SoundWave(name=filename, wave=wav, values=vals)
 
 
-def plot_waves(sound_waves: List[SoundWave], type="waveform"):
+def plot_waves(
+        sound_waves: List[SoundWave],
+        plot_type="waveform",
+        window_t=None,
+        window_func: str = "none"):
     """
     Plots all passed sound waves on a single plot with the given type.
     """
-    title = f"{type.capitalize()} plot of"
+    title = f"{plot_type.capitalize()} plot of"
 
-    plt.ylabel("Amplitude")
+    if plot_type == "waveform":
 
-    plt.xlabel("Time")
+        plt.ylabel("Amplitude")
+        plt.xlabel("Time")
 
-    for sw in sound_waves:
-        title += f" {sw.name}.wav"
-        _, noise_borders = sw.find_endpoints(500, 5000)
-        time = np.linspace(0, len(sw.values) /
-                           sw.wave.getframerate(), num=len(sw.values))
-        # TODO check if okay to simply plot different times
-        plt.plot(time, sw.values, label=f"{sw.name}.wav")
-        clr = np.random.rand(3,)
-        if not sw.cleaned:
-            for xc in noise_borders:
-                plt.axvline(x=xc, color=clr)
+        for sw in sound_waves:
+            title += f" {sw.name}.wav"
+            _, noise_borders = sw.find_endpoints(500, 5000)
+            time = np.linspace(0, len(sw.values) /
+                               sw.wave.getframerate(), num=len(sw.values))
+            # TODO check if okay to simply plot different times
+            plt.plot(time, sw.values, label=f"{sw.name}.wav")
+            clr = np.random.rand(3,)
+            if not sw.cleaned:
+                for xc in noise_borders:
+                    plt.axvline(x=xc, color=clr)
 
-    plt.legend()
+        plt.legend()
+        plt.show()
+        return
 
-    plt.show()
+    if plot_type == "histogram":
+
+        plt.ylabel("Magnitude")
+        plt.xlabel("Frequency")
+        plt.xscale('log')
+        plt.yscale('log')
+
+        if window_t == None:
+            window_t = (0, 100)
+        window_dur = (window_t[1] - window_t[0]) / 1000
+
+        for sw in sound_waves:
+
+            title += f" {sw.name}.wav"
+            _, noise_borders = sw.find_endpoints(500, 5000)
+            N = int(sw.wave.getframerate() * window_dur)
+            f = sw.wave.getframerate() * np.arange(N / 2) / N
+            # TODO check if okay to simply plot different freqs
+            y = dft(sw, window_t=window_t, window_func=window_func)
+            y = y + y.min()
+            y = y / y.max() * 100
+            # plt.plot(f, y, label=f"{sw.name}.wav")
+            # TODO fix
+            plt.bar(f, y, align="center", width=f[1]-f[0])
+
+        plt.legend()
+        plt.show()
+        return
+
+    if plot_type == "spectrogram":
+
+        plt.ylabel("Magnitude")
+        plt.xlabel("Frequency")
+
+        if window_t == None:
+            window_t = (0, 100)
+        window_dur = (window_t[1] - window_t[0]) / 1000
+
+        for sw in sound_waves:
+
+            title += f" {sw.name}.wav"
+            _, noise_borders = sw.find_endpoints(500, 5000)
+            N = int(sw.wave.getframerate() * window_dur)
+            f = sw.wave.getframerate() * np.arange(N / 2) / N
+            T = window_dur
+            # TODO check if okay to simply plot different freqs
+            y = dft(sw, window_t=window_t, window_func=window_func)
+            plt.imshow(y, origin="lower", cmap="viridis",
+                       extent=(0, T, 0, sw.wave.getframerate() / 2 / 1000))
+            clr = np.random.rand(3,)
+            if not sw.cleaned:
+                for xc in noise_borders:
+                    plt.axvline(x=xc, color=clr)
+
+        plt.legend()
+        plt.show()
+        return
+
+    raise ValueError(
+        "Invalid plot_type passed to function plot_waves: " + plot_type)
 
 
 def list_waves(d, filter=None):
@@ -230,6 +296,43 @@ def generate_wave(name, n, t):
     return sw
 
 
+def dft(sw: SoundWave, window_t: int, window_func: str):
+    """
+    Discrete Fourier transform. Window_t in ms.
+    """
+
+    if window_t == None:
+        window_t = (0, len(sw.values))
+    window_dur = (window_t[1] - window_t[0]) / 1000
+    window_func = window_func.lower()
+
+    # Calculate number of samples
+    N = int(sw.wave.getframerate() * window_dur)
+
+    # TODO check if we should be cutting this at all
+    t_start = int(window_t[0] / 1000 * sw.wave.getframerate())
+    t_end = t_start + N
+    y = sw.values[t_start: t_end]
+
+    if len(y) == 0:
+        raise ValueError()
+    if window_func != "none":
+        if window_func == "hamming":
+            y = y * np.hamming(N)
+        elif window_func == "hanning":
+            y = y * np.hanning(N)
+        else:
+            return None
+
+    # Slash right side and normalize
+    y_temp = np.fft.fft(y)[0:int(N / 2)] / N
+    y_temp[1:] = 2*y_temp[1:]
+
+    # Calculate magnitude, remove complex part
+    FFT_y = np.abs(y_temp)
+    return FFT_y
+
+
 # Helper global dict of all loaded soundwaves.
 sound_waves: Dict[str, SoundWave] = {}
 
@@ -271,7 +374,7 @@ def main():
                 for f in cmd[1:]:
                     sw = sound_waves.get(f, None)
                     if sw == None:
-                        print(TEXT_NOT_LOADED + f)
+                        print(TEXT_NOT_LOADED % f)
                         br = True
                         continue
                     to_clean.append(sw)
@@ -348,31 +451,84 @@ def main():
 
         elif func == "plot":
 
-            plot_type = 'waveform'
+            plot_type = "waveform"
+            window_t = None
+            window_f = "none"
+            to_compare = []
 
-            i = 1
-            if len(cmd) > 1:
-                if cmd[1].lower() in ['waveform', 'spectogram', 'histogram']:
-                    plot_type = cmd[1].lower()
-                    i += 1
+            # Fetch window t and function
+            cmd_lowered = [x.lower() for x in cmd]
 
-            if len(cmd) == 1:
-                to_compare = sound_waves.values()
-            else:
-                to_compare = []
-                br = False
-                for f in cmd[i:]:
-                    sw = sound_waves.get(f, None)
-                    if sw == None:
-                        print(TEXT_NOT_LOADED + f)
-                        br = True
-                        continue
-                    to_compare.append(sw)
-                if br:
+            prev = None
+            err = False
+            pot_missing = None
+            arg_flags = ["-w", "-f", "-t"]
+            for arg in cmd_lowered:
+
+                if arg == "plot":
                     continue
 
+                # If special arg
+                if prev in arg_flags:
+                    pot_missing = None
+
+                    if prev == "-w":
+                        try:
+                            tmp = arg.split("-")
+                            timestamp_start = int(tmp[0])
+                            timestamp_end = int(tmp[1])
+                            if timestamp_start - timestamp_end >= 0:
+                                print(TEXT_INVALID_SYNTAX_PLOT_WINDOW_T)
+                                err = True
+                                break
+                            window_t = (timestamp_start, timestamp_end)
+                        except:
+                            print(TEXT_INVALID_SYNTAX_PLOT_WINDOW_T)
+                            err = True
+                            break
+
+                    elif prev == "-f":
+                        if arg not in ["none", "hamming", "hanning"]:
+                            print(TEXT_INVALID_SYNTAX_PLOT_WINDOW_F % arg)
+                            err = True
+                            break
+                        window_f = arg
+
+                    else:
+                        if arg not in ["waveform", "spectrogram", "histogram"]:
+                            print(TEXT_INVALID_SYNTAX_PLOT_TYPE % arg)
+                            err = True
+                            break
+                        plot_type = arg
+
+                # Simple file name
+                else:
+                    if pot_missing != None:
+                        print(TEXT_NOT_LOADED % fn)
+                        err = True
+                        break
+
+                    fn = cmd[cmd_lowered.index(arg)]
+                    sw = sound_waves.get(fn, None)
+                    if sw == None:
+                        pot_missing = fn
+                    else:
+                        to_compare.append(sw)
+
+                prev = arg
+
+            if err:
+                continue
+
+            if len(to_compare) == 0:
+                to_compare = sound_waves.values()
+
             print(TEXT_PLOTTING)
-            plot_waves(to_compare, type=plot_type)
+            # try:
+            plot_waves(to_compare, plot_type=plot_type,
+                       window_t=window_t, window_func=window_f)
+            # except ValueError:
+            # print(TEXT_INVALID_SYNTAX_PLOT_WINDOW)
 
         elif func == "quit":
             quit()
@@ -380,7 +536,7 @@ def main():
         else:
             print("\n=== Help ===\n")
             print(f"{TEXT_CLEAN}\n")
-            print(f"{TEXT_GENERATE}\n")
+            print(f"{TEXT_GEN}\n")
             print(f"{TEXT_HELP}\n")
             print(f"{TEXT_LIST}\n")
             print(f"{TEXT_LOAD}\n")
