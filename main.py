@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import os
 import regex as re
 from constants import *
+from scipy import signal
 
 
 # P and R parameters for cleaning.
@@ -150,7 +151,7 @@ def plot_waves(
     if plot_type == "waveform":
 
         plt.ylabel("Amplitude")
-        plt.xlabel("Time")
+        plt.xlabel("Time [s]")
 
         for sw in sound_waves:
             title += f" {sw.name}.wav"
@@ -171,18 +172,17 @@ def plot_waves(
     if plot_type == "histogram":
 
         plt.ylabel("Magnitude")
-        plt.xlabel("Frequency")
+        plt.xlabel("Frequency [Hz]")
         plt.xscale('log')
         plt.yscale('log')
 
         if window_t == None:
-            window_t = (0, 100)
-        window_dur = (window_t[1] - window_t[0]) / 1000
+            window_t = 100
+        window_dur = window_t / 1000
 
         for sw in sound_waves:
 
             title += f" {sw.name}.wav"
-            _, noise_borders = sw.find_endpoints(500, 5000)
             N = int(sw.wave.getframerate() * window_dur)
             f = sw.wave.getframerate() * np.arange(N / 2) / N
             # TODO check if okay to simply plot different freqs
@@ -199,28 +199,44 @@ def plot_waves(
 
     if plot_type == "spectrogram":
 
-        plt.ylabel("Magnitude")
-        plt.xlabel("Frequency")
+        if len(sound_waves) > 1:
+            raise ValueError("Spectrogram can only plot 1 sound wave")
 
-        if window_t == None:
-            window_t = (0, 100)
-        window_dur = (window_t[1] - window_t[0]) / 1000
+        sw = sound_waves[0]
+        M = 1024
 
-        for sw in sound_waves:
+        if window_func == "none" or window_func == None:
+            freqs, times, Sx = signal.spectrogram(
+                sw.values,
+                fs=sw.wave.getframerate(),
+                nperseg=M,
+                noverlap=M - window_t,
+                detrend=False, scaling='spectrum'
+            )
+        elif window_func in ["hamming", "hanning"]:
+            freqs, times, Sx = signal.spectrogram(
+                sw.values,
+                fs=sw.wave.getframerate(),
+                window=window_func,
+                nperseg=M,
+                noverlap=M - window_t,
+                detrend=False, scaling='spectrum'
+            )
+        else:
+            raise ValueError(
+                "window_func argument can only be one of [None, \"hamming\", \"hanning\"]")
 
-            title += f" {sw.name}.wav"
-            _, noise_borders = sw.find_endpoints(500, 5000)
-            N = int(sw.wave.getframerate() * window_dur)
-            f = sw.wave.getframerate() * np.arange(N / 2) / N
-            T = window_dur
-            # TODO check if okay to simply plot different freqs
-            y = dft(sw, window_t=window_t, window_func=window_func)
-            plt.imshow(y, origin="lower", cmap="viridis",
-                       extent=(0, T, 0, sw.wave.getframerate() / 2 / 1000))
-            clr = np.random.rand(3,)
-            if not sw.cleaned:
-                for xc in noise_borders:
-                    plt.axvline(x=xc, color=clr)
+        f, ax = plt.subplots(figsize=(6, 4))
+        ax.pcolormesh(times, freqs / 1000, 10 * np.log10(Sx), cmap='viridis')
+        ax.set_ylabel('Frequency [kHz]')
+        ax.set_xlabel('Time [s]')
+        ax.set_title(f"{sw.name}.wav")
+
+        _, noise_borders = sw.find_endpoints(500, 5000)
+        clr = np.random.rand(3,)
+        if not sw.cleaned:
+            for xc in noise_borders:
+                plt.axvline(x=xc, color=clr)
 
         plt.legend()
         plt.show()
@@ -301,21 +317,17 @@ def dft(sw: SoundWave, window_t: int, window_func: str):
     Discrete Fourier transform. Window_t in ms.
     """
 
-    if window_t == None:
-        window_t = (0, len(sw.values))
-    window_dur = (window_t[1] - window_t[0]) / 1000
+    window_dur = window_t / 1000
     window_func = window_func.lower()
 
     # Calculate number of samples
     N = int(sw.wave.getframerate() * window_dur)
 
     # TODO check if we should be cutting this at all
-    t_start = int(window_t[0] / 1000 * sw.wave.getframerate())
-    t_end = t_start + N
-    y = sw.values[t_start: t_end]
+    y = sw.values
 
     if len(y) == 0:
-        raise ValueError()
+        raise ValueError("sw.values cannot be empty")
     if window_func != "none":
         if window_func == "hamming":
             y = y * np.hamming(N)
@@ -452,7 +464,7 @@ def main():
         elif func == "plot":
 
             plot_type = "waveform"
-            window_t = None
+            window_t = 100
             window_f = "none"
             to_compare = []
 
@@ -474,14 +486,7 @@ def main():
 
                     if prev == "-w":
                         try:
-                            tmp = arg.split("-")
-                            timestamp_start = int(tmp[0])
-                            timestamp_end = int(tmp[1])
-                            if timestamp_start - timestamp_end >= 0:
-                                print(TEXT_INVALID_SYNTAX_PLOT_WINDOW_T)
-                                err = True
-                                break
-                            window_t = (timestamp_start, timestamp_end)
+                            window_t = int(arg)
                         except:
                             print(TEXT_INVALID_SYNTAX_PLOT_WINDOW_T)
                             err = True
@@ -524,6 +529,11 @@ def main():
                 to_compare = sound_waves.values()
 
             print(TEXT_PLOTTING)
+
+            if plot_type == "spectrogram" and len(to_compare) > 1:
+                print(TEXT_INVALID_SYNTAX_PLOT_TOO_MANY % plot_type)
+                continue
+
             # try:
             plot_waves(to_compare, plot_type=plot_type,
                        window_t=window_t, window_func=window_f)
