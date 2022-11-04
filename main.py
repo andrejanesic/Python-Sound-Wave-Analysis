@@ -154,6 +154,7 @@ def plot_waves(
         plt.xlabel("Time [s]")
 
         for sw in sound_waves:
+            axv_labelled = False
             title += f" {sw.name}.wav"
             _, noise_borders = sw.find_endpoints(500, 5000)
             time = np.linspace(0, len(sw.values) /
@@ -163,8 +164,14 @@ def plot_waves(
             clr = np.random.rand(3,)
             if not sw.cleaned:
                 for xc in noise_borders:
-                    plt.axvline(x=xc, color=clr)
+                    if axv_labelled:
+                        plt.axvline(x=xc, color=clr)
+                    else:
+                        plt.axvline(x=xc, color=clr,
+                                    label=f"{sw.name} speech border")
+                        axv_labelled = True
 
+        plt.title(title)
         plt.legend()
         plt.show()
         return
@@ -193,6 +200,8 @@ def plot_waves(
             # TODO fix
             plt.bar(f, y, align="center", width=f[1]-f[0])
 
+        title += f", window_t={window_t}, window_func={window_func}"
+        plt.title(title)
         plt.legend()
         plt.show()
         return
@@ -226,17 +235,25 @@ def plot_waves(
             raise ValueError(
                 "window_func argument can only be one of [None, \"hamming\", \"hanning\"]")
 
-        f, ax = plt.subplots(figsize=(6, 4))
-        ax.pcolormesh(times, freqs / 1000, 10 * np.log10(Sx), cmap='viridis')
-        ax.set_ylabel('Frequency [kHz]')
-        ax.set_xlabel('Time [s]')
-        ax.set_title(f"{sw.name}.wav")
+        mesh = plt.pcolormesh(times, freqs / 1000, 10 * np.log10(Sx), cmap='viridis')
+        plt.colorbar(mappable=mesh)
+        plt.ylabel('Frequency [kHz]')
+        plt.xlabel('Time [s]')
+        plt.grid(axis='y')
+        plt.title(
+            f"Spectrogram plot of {sw.name}.wav, window_t={window_t}, window_func={window_func}")
 
+        axv_labelled = False
         _, noise_borders = sw.find_endpoints(500, 5000)
         clr = np.random.rand(3,)
         if not sw.cleaned:
             for xc in noise_borders:
-                plt.axvline(x=xc, color=clr)
+                if axv_labelled:
+                    plt.axvline(x=xc, color=clr)
+                else:
+                    plt.axvline(x=xc, color=clr,
+                                label=f"{sw.name} speech border")
+                    axv_labelled = True
 
         plt.legend()
         plt.show()
