@@ -10,6 +10,26 @@ This program processes any given `.wav` signal to remove silence at the beginnin
 
 This is a command-line Python program. Python 3 is necessary to run. It is also possible to run this program via the given Dockerfile (through Makefile), however, you'll need to modify the Makefile to include a display port for Docker in order to see Pyplot graphs. It's recommended to run this program directly on your computer without Docker.
 
+### Setup On Local Computer
+
+To run this program on your local computer, execute the following Git command:
+
+```
+git clone https://github.com/andrejanesic/Python-Sound-Wave-Analysis.git
+```
+
+This will clone the repository onto your local computer.
+
+This program requires Python, so if it isn't installed on your computer, you can download it from the [Python.org website.](https://www.python.org/downloads/)
+
+Next, install the required libraries for Python using pip:
+
+```
+pip install wave numpy matplotlib scipy
+```
+
+You're good to go!
+
 ## Task Specification
 
 This program was developed as an individual assignment for the class of [[5025] Speech Recognition](https://raf.edu.rs/en/component/content/article/192-english/subjects/3359-speech-recognition), cohort 2022/23, at the [School of Computing, Union University, Belgrade.](https://rs.linkedin.com/school/racunarski-fakultet/)
@@ -49,3 +69,93 @@ The program should be parametarized by:
 2. User selection of window function (Hamming, Hanning or none.)
 3. DFT window size.
 4. Selection of frequency spectrum plot type and selection of sound wave to be plotted (or both in case of Output points 2 and 4.)
+
+## How To Use
+
+Run the program by executing the following command in your terminal:
+
+```
+python main.py
+```
+
+![Greeting screen](./res/greeting.png)
+
+### Loading Sound Waves
+
+In order to analyze a sound wave, you'll need to load it.
+
+The program will automatically load all sound waves in the `.wav` file format from the `input` folder.
+
+In order to load your own sound waves, copy the file you want to load into the program in the `input` folder, then enter:
+
+```
+> load <filename>
+```
+
+You may omit the ".wav" extension from the file name. _(All files from `input` will be automatically loaded on program start, so you don't need to load those again.)_
+
+In order to see which sound waves are loaded, type:
+
+```
+> list
+```
+
+You'll see a list of all sound waves you can work with, and you'll receive an information whether they've been cleaned from noise or not.
+
+![List command example](./res/list.png)
+
+### Analysis/Plotting Waves
+
+Next, you can plot one or more sound waves with a simple amplitude-time graph by entering the following command:
+
+```
+> plot male-alpha male-bravo
+```
+
+![Waveform plot example](./res/waveform.png)
+
+The plot will include vertical axes at the beginning and end of detected speech for all specified sound waves.
+
+_**NOTE:** omitting the names of sound waves to plot will plot **all** loaded sound waves, which could take a while!_
+
+#### Cleaning From Noise
+
+Next, you may wish to clean the non-speech parts (noise) from a given sound wave. To do so, run:
+
+```
+> cut male-bravo
+```
+
+Let's `male-bravo` sound wave to see its waveform now:
+
+![Example waveform plot of a cleaned signal](./res/waveform-cut.png)
+
+Noise has been removed from the signal.
+
+We can now plot a signal as a histogram or spectrogram. To do that, specify the plot type with the `-t <waveform|spectrogram|histogram>` parameter. You may also specify the window function using `-f <none|hamming|hanning>`, and a window width using `-w <width in ms>`. Let's see some examples:
+
+```
+> plot male-bravo -t histogram -w 150
+```
+
+![Histogram example](./res/histogram.png)
+
+```
+> plot male-bravo -t spectrogram -w 100 -f hamming
+```
+
+![Spectrogram example](./res/spectrogram.png)
+
+_**NOTE:** While histogram plot may accept multiple sound waves, spectrogram plots currently only support plotting one sound wave at a time._
+
+### Generation
+
+The program can also generate an arbitrary sound wave with the `gen` command. This will create a new sound in the `output` folder. For example:
+
+```
+gen sample 10 2000
+```
+
+This command will generate a sound wave named `sample.wav` in the `output` folder, composed of 10 elementary harmonics, and with a total signal duration of 2,000ms (2s). The harmonics are generated randomly. Here's what the sound may look like:
+
+![Generated sound example](./res/output.png)

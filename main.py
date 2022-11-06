@@ -346,12 +346,15 @@ def dft(sw: SoundWave, window_t: int, window_func: str):
     if len(y) == 0:
         raise ValueError("sw.values cannot be empty")
     if window_func != "none":
-        if window_func == "hamming":
-            y = y * np.hamming(N)
-        elif window_func == "hanning":
-            y = y * np.hanning(N)
-        else:
-            return None
+        i = 0
+        while (i < len(y) // N):
+            if window_func == "hamming":
+                y[i*N:(i+1)*N] = y[i*N:(i+1)*N] * np.hamming(N)
+            elif window_func == "hanning":
+                y[i*N:(i+1)*N] = y[i*N:(i+1)*N] * np.hanning(N)
+            else:
+                return None
+            i += 1
 
     # Slash right side and normalize
     y_temp = np.fft.fft(y)[0:int(N / 2)] / N
